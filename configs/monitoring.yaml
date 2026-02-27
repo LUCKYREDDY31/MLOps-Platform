@@ -1,0 +1,15 @@
+# Monitoring configuration - drift detection and alerting thresholds.
+
+drift:
+  threshold: 0.2           # retrain if drift_share exceeds this
+  severe_threshold: 0.4    # CRITICAL alert level
+  reference_window: train  # data split used as reference
+  current_sample_size: 5000
+
+alerts:
+  log_file: logs/alerts.jsonl
+  levels:
+    - INFO
+    - WARNING
+    - CRITICAL
+  # To enable Slack or email alerts, add webhook_url or smtp config here.

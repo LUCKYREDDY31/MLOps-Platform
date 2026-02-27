@@ -1,0 +1,91 @@
+name: MLOps CI/CD Pipeline
+
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt && pip install -e .
+
+      - name: Run unit tests
+        run: python -m pytest tests/ -v --tb=short
+
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install flake8
+      - name: Lint with flake8
+        run: flake8 . --count --max-line-length=120 --exclude=.git,__pycache__,venv --statistics
+
+  train-and-validate:
+    name: Training Pipeline Smoke Test
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt && pip install -e .
+
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
+
+      - name: Generate small dataset for CI
+        run: python src/mlops_platform/data/generate_data.py --churn-rows 2000 --fraud-rows 4000
+
+      - name: Run feature pipeline
+        run: python src/mlops_platform/data/feature_pipeline.py
+
+      - name: Train churn model
+        run: python src/mlops_platform/training/churn_model.py
+
+      - name: Train fraud model (5 epochs for CI speed)
+        run: python src/mlops_platform/training/fraud_model.py --epochs 5
+
+      - name: Validate model artifacts exist
+        run: |
+          test -f models/churn_model.pkl && echo "Churn model OK"
+          test -f models/fraud_model.pt && echo "Fraud model OK"
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-models
+          path: models/
+          retention-days: 7

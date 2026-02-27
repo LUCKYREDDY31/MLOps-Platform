@@ -1,0 +1,30 @@
+# Training configuration - tuneable parameters for both models.
+
+data:
+  churn_rows: 50000
+  fraud_rows: 100000
+  drift_factor: 0.15
+  test_size: 0.2
+  random_seed: 42
+
+churn:
+  model_type: XGBoost
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  eval_metric: logloss
+  cv_folds: 3
+
+fraud:
+  model_type: PyTorchFraudNet
+  epochs: 30
+  batch_size: 512
+  learning_rate: 0.001
+  hidden_dims: [128, 64, 32]
+  dropout: 0.3
+  optimizer: Adam
+  weight_decay: 0.0001
+  lr_scheduler_patience: 3
+  lr_scheduler_factor: 0.5
